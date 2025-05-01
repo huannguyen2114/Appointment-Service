@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: "jdbc:postgresql://localhost:5444/appointment_db"
+    driverClassName: "org.postgresql.Driver"
+    username: myuser
+    password: mypassword
+
+  jpa:
+    hibernate:
+      ddl-auto: "update"
+    show-sql: true
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+  
+
+server:
+  port: 8080

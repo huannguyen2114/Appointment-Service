@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: ../001-init.sql # Path relative to this master file
+      relativeToChangelogFile: true

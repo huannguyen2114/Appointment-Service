@@ -1,23 +1,16 @@
 package com.ktpmn.appointment.model;
 
 // import java.sql.Date; // Remove this import
+
 import java.time.OffsetDateTime; // Import OffsetDateTime
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ktpmn.appointment.constant.AppointmentStatus;
 import com.ktpmn.appointment.constant.AppointmentType;
 
-import jakarta.persistence.Column; // Import Column
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType; // Import EnumType
-import jakarta.persistence.Enumerated; // Import Enumerated
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne; // Ensure ManyToOne is imported
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -39,8 +32,9 @@ public class Appointment extends Audit {
     UUID id;
 
     // Change from UUID to Patient entity for the relationship
-    @ManyToOne // Define the relationship: many appointments to one patient
-    @JoinColumn(name = "patient_id") // Map this field to the patient_id foreign key column
+    @JsonBackReference
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_id", nullable = false)
     Patient patient; // Renamed field from patientId to patient
 
     @ManyToOne // Add ManyToOne annotation for the relationship
@@ -65,7 +59,7 @@ public class Appointment extends Audit {
     OffsetDateTime toDate; // Changed from Date to OffsetDateTime
 
     @Column(name = "ordinal_number", insertable = false, updatable = false) // Map to ordinal_number, let DB handle
-                                                                            // generation
+    // generation
     Integer ordinalNumber;
 
     // created_at and updated_at are inherited from Audit class

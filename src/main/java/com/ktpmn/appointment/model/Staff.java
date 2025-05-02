@@ -1,6 +1,7 @@
 package com.ktpmn.appointment.model;
 
 // import java.util.Date; // Remove this import
+
 import java.time.LocalDate; // Import LocalDate
 import java.util.UUID;
 
@@ -19,20 +20,18 @@ import jakarta.validation.constraints.Email; // Keep Email import
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull; // Import NotNull
 import jakarta.validation.constraints.Pattern;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
+import java.util.List; // Import List
+import jakarta.persistence.OneToMany; // Import OneToMany// Optional: Import CascadeType
 
-@Entity
-@Table(name = "staff")
 @Data
-@FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Entity
+@Table(name = "staff")
 public class Staff extends Audit {
 
     @Id
@@ -80,7 +79,11 @@ public class Staff extends Audit {
     @Column(name = "citizen_id", length = 12, unique = true) // Map to citizen_id column
     String citizenId;
 
+    @OneToMany(mappedBy = "doctor") // 'doctor' is the field name in Appointment
+    private List<Appointment> appointmentsAsDoctor;
+
+    @OneToMany(mappedBy = "staff") // 'staff' is the field name in Shift
+    private List<Shift> shifts;
+
     // created_at and updated_at are inherited from Audit class
-    // Ensure Audit class fields use appropriate types (e.g., OffsetDateTime) and
-    // @Column if needed
 }

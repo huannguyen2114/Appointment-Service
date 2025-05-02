@@ -1,7 +1,8 @@
 package com.ktpmn.appointment.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-
+import com.ktpmn.appointment.model.Patient;
+import com.ktpmn.appointment.model.Staff;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -11,10 +12,11 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApiResponse<T> {
+public class AppointmentCreateResponse {
 
-    int code;
-    String message;
-    T result;
+    String id;
 
+    Staff doctor;
+
+    Patient patient;
 }

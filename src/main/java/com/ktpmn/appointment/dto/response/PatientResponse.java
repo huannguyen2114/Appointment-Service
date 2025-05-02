@@ -3,12 +3,10 @@ package com.ktpmn.appointment.dto.response;
 import lombok.Builder;
 import lombok.Data;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.ktpmn.appointment.model.Appointment;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Data

@@ -3,8 +3,6 @@ package com.ktpmn.appointment.dto.response;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ktpmn.appointment.constant.AppointmentStatus;
 import com.ktpmn.appointment.constant.AppointmentType;
-import com.ktpmn.appointment.model.Patient;
-import com.ktpmn.appointment.model.Staff;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 

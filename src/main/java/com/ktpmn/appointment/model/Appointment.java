@@ -5,8 +5,7 @@ import java.time.OffsetDateTime; // Import OffsetDateTime
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import com.ktpmn.appointment.constant.AppointmentStatus;
 import com.ktpmn.appointment.constant.AppointmentType;
 

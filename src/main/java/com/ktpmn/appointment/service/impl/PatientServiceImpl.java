@@ -17,15 +17,23 @@ public class PatientServiceImpl implements PatientService {
     @Override
     @Transactional
     public Patient createPatient(CreatePatientRequest request) {
-        // Optional: Add validation or checks here, e.g., check if patient already exists
+        // Optional: Add validation or checks here, e.g., check if patient already
+        // exists
 
         Patient newPatient = Patient.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                // Set other fields from the request if they exist
+                .phoneNumber(request.getPhoneNumber())
                 .build();
 
         return patientRepository.save(newPatient);
+    }
+
+    @Override
+    public Patient getPatientByPhoneNumber(String phoneNumber) {
+        Patient patient = patientRepository.findByPhoneNumber(phoneNumber);
+        // System.out.println(patient);
+        return patient;
     }
 
     // Implement other methods from PatientService interface here

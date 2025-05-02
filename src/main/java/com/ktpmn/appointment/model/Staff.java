@@ -23,8 +23,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import java.util.List; // Import List
-import jakarta.persistence.OneToMany; // Import OneToMany
-import jakarta.persistence.CascadeType; // Optional: Import CascadeType
+import jakarta.persistence.OneToMany; // Import OneToMany// Optional: Import CascadeType
 
 @Data
 @Builder

@@ -1,7 +1,5 @@
 package com.ktpmn.appointment.model;
 
-
-import java.util.Date;
 import java.time.OffsetDateTime; // Use OffsetDateTime
 import org.hibernate.annotations.CreationTimestamp; // Import Hibernate annotation
 import org.hibernate.annotations.UpdateTimestamp; // Import Hibernate annotation

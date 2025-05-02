@@ -3,14 +3,16 @@ package com.ktpmn.appointment.controller;
 import com.ktpmn.appointment.dto.request.CreateAppointmentRequest;
 import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest; // Import Update DTO
 import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest; // Import new DTO
-import java.util.List;
+import java.util.List; // Import List
 import java.util.UUID;
+import java.util.stream.Collectors; // Import Collectors
 
 import com.ktpmn.appointment.dto.request.AppointmentCreateRequest;
 import com.ktpmn.appointment.dto.response.*;
-import com.ktpmn.appointment.mapper.PatientMapper;
-import com.ktpmn.appointment.mapper.StaffMapper;
-import com.ktpmn.appointment.model.Patient;
+// import com.ktpmn.appointment.mapper.PatientMapper; // Remove PatientMapper import
+// import com.ktpmn.appointment.mapper.StaffMapper; // Remove StaffMapper import
+import com.ktpmn.appointment.model.Patient; // Import Patient model
+import com.ktpmn.appointment.model.Staff; // Import Staff model
 import com.ktpmn.appointment.service.PatientService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -18,24 +20,14 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.experimental.FieldDefaults;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.repository.query.Param;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.ktpmn.appointment.model.Appointment;
 import com.ktpmn.appointment.service.AppointmentService;
-import jakarta.validation.Valid;
-
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*; // Import more annotations
-import java.util.UUID; // Import UUID
 
 @RestController
 @RequestMapping("/api/v1/appointments")
@@ -44,21 +36,19 @@ import java.util.UUID; // Import UUID
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AppointmentController {
 
-    private final AppointmentService appointmentService;
     AppointmentService appointmentService;
     PatientService patientService;
-    PatientMapper patientMapper;
-    StaffMapper staffMapper;
+    // PatientMapper patientMapper; // Removed PatientMapper field
+    // StaffMapper staffMapper; // Removed StaffMapper field
 
-//    Get Appointment by doctor id -> /:id
+    // Get Appointment by doctor id -> /:id
 
-    //    Get All Appointment by doctor id -> list appointment
+    // Get All Appointment by doctor id -> list appointment
     @GetMapping("/doctor/{id}")
     public ApiResponse<ListResponse<AppointmentResponse>> findAllAppointmentsByDoctorId(
             @PathVariable UUID id,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) int limit
-    ) {
+            @RequestParam(defaultValue = "10") @Min(1) int limit) {
         Pageable pageable = (Pageable) PageRequest.of(page, limit);
         return ApiResponse.<ListResponse<AppointmentResponse>>builder()
                 .code(HttpStatus.OK.value())
@@ -67,7 +57,7 @@ public class AppointmentController {
                 .build();
     }
 
-    //    create doctor
+    // create doctor
     @PostMapping("/doctor")
     public ApiResponse<AppointmentCreateResponse> createAppointment(@RequestBody AppointmentCreateRequest request) {
         return ApiResponse.<AppointmentCreateResponse>builder()
@@ -77,23 +67,39 @@ public class AppointmentController {
                 .build();
     }
 
-    //    Get Appointment by phone_number  (RequestBody: type: appointment)
+    // Get Appointment by phone_number (RequestBody: type: appointment)
     @GetMapping("/patient/{phoneNumber}")
     public ApiResponse<PatientAppointmentResponse> getAllAppointmentByPhonenumber(@PathVariable String phoneNumber) {
-        PatientAppointmentResponse patientResponse = patientMapper.toPatientAppointmentResponse(patientService.getPatientByPhoneNumber(phoneNumber));
-        if (patientResponse == null) {
+        Patient patient = patientService.getPatientByPhoneNumber(phoneNumber); // Get Patient entity
+
+        if (patient == null) {
             return ApiResponse.<PatientAppointmentResponse>builder()
-                    .code(HttpStatus.BAD_REQUEST.value())
-                    .message("No patient found")
+                    .code(HttpStatus.NOT_FOUND.value()) // Use NOT_FOUND
+                    .message("No patient found with phone number: " + phoneNumber)
                     .result(null)
                     .build();
         }
+
+        // Manually map Appointments to AppointmentResponse DTOs
+        List<AppointmentResponse> appointmentResponses = patient.getAppointments().stream()
+                .map(this::mapAppointmentToResponse) // Use helper method for mapping
+                .collect(Collectors.toList());
+
+        // Manually build the PatientAppointmentResponse
+        PatientAppointmentResponse patientAppointmentResponse = PatientAppointmentResponse.builder()
+                .id(patient.getId())
+                .firstName(patient.getFirstName())
+                .lastName(patient.getLastName())
+                .phoneNumber(patient.getPhoneNumber())
+                .appointments(appointmentResponses) // Set the mapped list
+                .build();
+
         return ApiResponse.<PatientAppointmentResponse>builder()
                 .code(HttpStatus.OK.value())
-                .message("All appointment by phone number")
-                .result(patientResponse)
+                .message("Appointments found for patient with phone number: " + phoneNumber)
+                .result(patientAppointmentResponse)
                 .build();
-        }
+    }
 
     @PostMapping
     public ResponseEntity<Appointment> createAppointment(@Valid @RequestBody CreateAppointmentRequest request) {
@@ -123,4 +129,51 @@ public class AppointmentController {
     }
 
     // Add other endpoints (GET) as needed
+
+    // Helper method to map Appointment entity to AppointmentResponse DTO
+    private AppointmentResponse mapAppointmentToResponse(Appointment appointment) {
+        StaffResponse staffResponse = null;
+        if (appointment.getDoctor() != null) {
+            Staff doctor = appointment.getDoctor();
+            staffResponse = StaffResponse.builder()
+                    .id(doctor.getId())
+                    .firstName(doctor.getFirstName())
+                    .lastName(doctor.getLastName())
+                    .email(doctor.getEmail())
+                    .phoneNumber(doctor.getPhoneNumber())
+                    .role(doctor.getRole())
+                    .dob(doctor.getDob())
+                    .certificationId(doctor.getCertificationId())
+                    .sex(doctor.getSex())
+                    .citizenId(doctor.getCitizenId())
+                    .createdAt(doctor.getCreatedAt())
+                    .updatedAt(doctor.getUpdatedAt())
+                    .build();
+        }
+
+        PatientResponse patientResponse = null;
+        if (appointment.getPatient() != null) {
+            Patient apptPatient = appointment.getPatient();
+            patientResponse = PatientResponse.builder()
+                    .id(apptPatient.getId())
+                    .firstName(apptPatient.getFirstName())
+                    .lastName(apptPatient.getLastName())
+                    .phoneNumber(apptPatient.getPhoneNumber())
+                    .createdAt(apptPatient.getCreatedAt())
+                    .updatedAt(apptPatient.getUpdatedAt())
+                    .build();
+        }
+
+        return AppointmentResponse.builder()
+                .id(appointment.getId().toString())
+                .doctor(staffResponse)
+                .patient(patientResponse) // Include mapped patient details
+                .appointmentStatus(appointment.getAppointmentStatus())
+                .description(appointment.getDescription())
+                .appointmentType(appointment.getAppointmentType())
+                .fromDate(appointment.getFromDate())
+                .toDate(appointment.getToDate())
+                .ordinalNumber(appointment.getOrdinalNumber())
+                .build();
+    }
 }

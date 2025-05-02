@@ -12,6 +12,9 @@ public class CreatePatientRequest {
     @NotBlank(message = "Last name cannot be blank")
     private String lastName;
 
+    @NotBlank(message = "Last name cannot be blank")
+    private String phoneNumber;
+
     // Add other relevant fields if needed, e.g., dob, address, contact info
     // Ensure these fields exist in the Patient entity as well.
 }

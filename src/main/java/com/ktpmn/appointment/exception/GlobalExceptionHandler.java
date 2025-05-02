@@ -1,22 +1,12 @@
 package com.ktpmn.appointment.exception;
 
-import java.nio.file.AccessDeniedException;
-import java.util.Map;
-import java.util.Objects;
-
-import jakarta.validation.ConstraintViolation;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import com.ktpmn.appointment.dto.response.ApiResponse;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 //@ControllerAdvice
@@ -92,7 +82,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 //    // }
 //
 //}
-
 
 @ControllerAdvice
 public class GlobalExceptionHandler {

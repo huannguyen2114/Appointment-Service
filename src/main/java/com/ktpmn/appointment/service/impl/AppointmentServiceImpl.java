@@ -6,17 +6,18 @@ import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest; // Import Upd
 import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest; // Import new DTO
 import com.ktpmn.appointment.exception.*;
 import com.ktpmn.appointment.exception.DoctorAppointmentMismatchException; // Import custom exception
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors; // Import Collectors
 
-import com.ktpmn.appointment.constant.Role;
 import com.ktpmn.appointment.dto.request.AppointmentCreateRequest;
 import com.ktpmn.appointment.dto.response.AppointmentCreateResponse;
 import com.ktpmn.appointment.dto.response.AppointmentResponse;
-import com.ktpmn.appointment.dto.response.ListAppointmentResponse;
+
 import com.ktpmn.appointment.dto.response.ListResponse;
-import com.ktpmn.appointment.mapper.AppointmentMapper;
+import com.ktpmn.appointment.dto.response.PatientResponse;
+import com.ktpmn.appointment.dto.response.StaffResponse;
+// import com.ktpmn.appointment.mapper.AppointmentMapper; // Remove MapStruct mapper import
 import com.ktpmn.appointment.model.Patient;
 import com.ktpmn.appointment.model.Staff;
 import com.ktpmn.appointment.repository.PatientRepository;
@@ -24,31 +25,25 @@ import com.ktpmn.appointment.repository.StaffRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.ktpmn.appointment.model.Appointment;
-import com.ktpmn.appointment.model.Patient;
+
 import com.ktpmn.appointment.model.Shift;
-import com.ktpmn.appointment.model.Staff;
+
 import com.ktpmn.appointment.repository.AppointmentRepository;
-import com.ktpmn.appointment.repository.PatientRepository;
+
 import com.ktpmn.appointment.repository.ShiftRepository;
-import com.ktpmn.appointment.repository.StaffRepository;
+
 import com.ktpmn.appointment.service.AppointmentService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID; // Import UUID
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -59,7 +54,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     PatientRepository patientRepository;
     StaffRepository staffRepository;
     ShiftRepository shiftRepository;
-    AppointmentMapper appointmentMapper;
+    // AppointmentMapper appointmentMapper; // Remove MapStruct mapper field
 
     @Override
     @Transactional
@@ -113,46 +108,50 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         return appointmentRepository.save(newAppointment);
     }
+
+    @Override
     public ListResponse<AppointmentResponse> getAllAppointmentsByDoctorId(UUID doctorId, Pageable pageable) {
+        Page<Appointment> resultPage = appointmentRepository.findByDoctorId(doctorId, pageable);
 
-//        Staff doctor = staffRepository.findByIdAndRole(doctorId, Role.DOCTOR);
-//
-//        if (doctor == null) {
-//            throw
-//        }
+        List<AppointmentResponse> appointmentResponses = resultPage.getContent().stream()
+                .map(this::mapAppointmentToAppointmentResponse) // Use helper method for mapping
+                .collect(Collectors.toList());
 
-        Page<Appointment> result = appointmentRepository.findByDoctorId(doctorId, pageable);
-
-//        System.out.println("cascascascsacascsac");
-
-        ListResponse<AppointmentResponse> response = appointmentMapper.toListAppointmentResponse(result);
-
-        return response;
+        return ListResponse.<AppointmentResponse>builder()
+                .listData(appointmentResponses)
+                .pageNumber(resultPage.getPageable().getPageNumber())
+                .numberOfElements(resultPage.getNumberOfElements())
+                .build();
     }
 
     @Override
     @Transactional
     public AppointmentCreateResponse createAppointment(AppointmentCreateRequest appointment) {
 
-        Staff doctor = staffRepository.findById(appointment.getDoctorId()).orElse(null);
+        Staff doctor = staffRepository.findById(appointment.getDoctorId())
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Staff (Doctor)", appointment.getDoctorId().toString())); // Use
+                                                                                                                      // ResourceNotFoundException
 
-        if (doctor == null) {
-            throw new IllegalArgumentException("Doctor not found");
-        }
+        Patient patient = patientRepository.findById(appointment.getPatientId())
+                .orElseThrow(() -> new ResourceNotFoundException("Patient", appointment.getPatientId().toString())); // Use
+                                                                                                                     // ResourceNotFoundException
 
-        Patient patient = patientRepository.findById(appointment.getPatientId()).orElse(null);
-        if (patient == null) {
-            throw new IllegalArgumentException("Patient not found");
-        }
-
-
-        Appointment result = appointmentRepository.save(Appointment.builder()
+        Appointment newAppointment = Appointment.builder()
                 .doctor(doctor)
                 .patient(patient)
-                .build());
+                .appointmentStatus(AppointmentStatus.WAITING) // Set default status if applicable
+                // Set other default fields if necessary
+                .build();
 
-        return appointmentMapper.toAppointmentCreateResponse(result);
+        Appointment savedAppointment = appointmentRepository.save(newAppointment);
 
+        // Manual mapping using Builder
+        return AppointmentCreateResponse.builder()
+                .id(savedAppointment.getId().toString())
+                .doctor(savedAppointment.getDoctor()) // Assuming you want the full Staff object
+                .patient(savedAppointment.getPatient()) // Assuming you want the full Patient object
+                .build();
     }
 
     @Override
@@ -222,34 +221,75 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointmentRepository.deleteById(id);
     }
 
+    // Helper method to map Appointment to AppointmentResponse using Builder
+    private AppointmentResponse mapAppointmentToAppointmentResponse(Appointment appointment) {
+        // Manual mapping for nested objects (Doctor -> StaffResponse, Patient ->
+        // PatientResponse)
+        StaffResponse staffResponse = null;
+        if (appointment.getDoctor() != null) {
+            staffResponse = StaffResponse.builder()
+                    .id(appointment.getDoctor().getId())
+                    .firstName(appointment.getDoctor().getFirstName())
+                    .lastName(appointment.getDoctor().getLastName())
+                    .email(appointment.getDoctor().getEmail())
+                    .phoneNumber(appointment.getDoctor().getPhoneNumber())
+                    .role(appointment.getDoctor().getRole())
+                    .dob(appointment.getDoctor().getDob())
+                    .certificationId(appointment.getDoctor().getCertificationId())
+                    .sex(appointment.getDoctor().getSex())
+                    .citizenId(appointment.getDoctor().getCitizenId())
+                    .createdAt(appointment.getDoctor().getCreatedAt())
+                    .updatedAt(appointment.getDoctor().getUpdatedAt())
+                    .build();
+        }
+
+        PatientResponse patientResponse = null;
+        if (appointment.getPatient() != null) {
+            patientResponse = PatientResponse.builder()
+                    .id(appointment.getPatient().getId())
+                    .firstName(appointment.getPatient().getFirstName())
+                    .lastName(appointment.getPatient().getLastName())
+                    .phoneNumber(appointment.getPatient().getPhoneNumber())
+                    .createdAt(appointment.getPatient().getCreatedAt())
+                    .updatedAt(appointment.getPatient().getUpdatedAt())
+                    .build();
+        }
+
+        return AppointmentResponse.builder()
+                .id(appointment.getId().toString())
+                .doctor(staffResponse)
+                .patient(patientResponse)
+                .appointmentStatus(appointment.getAppointmentStatus())
+                .description(appointment.getDescription())
+                .appointmentType(appointment.getAppointmentType())
+                .fromDate(appointment.getFromDate())
+                .toDate(appointment.getToDate())
+                .ordinalNumber(appointment.getOrdinalNumber())
+                .build();
+    }
+
     @Override
     @Transactional
     public Appointment updateAppointmentStatus(UpdateAppointmentStatusRequest request) {
-        // Fetch the appointment
         Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment", request.getAppointmentId().toString()));
 
-        // Fetch the doctor (optional, could just check the ID)
-        // Staff doctor = staffRepository.findById(request.getDoctorId())
-        // .orElseThrow(() -> new ResourceNotFoundException("Staff (Doctor)",
-        // request.getDoctorId().toString()));
-
-        // Verify the doctor assigned to the appointment matches the request
+        // Optional: Verify the doctor making the request matches the appointment's
+        // doctor
         if (!appointment.getDoctor().getId().equals(request.getDoctorId())) {
-            throw new DoctorAppointmentMismatchException(
-                    "Doctor with ID " + request.getDoctorId() + " is not assigned to appointment "
-                            + request.getAppointmentId());
+            throw new DoctorAppointmentMismatchException("Doctor ID does not match the appointment's doctor.");
         }
 
-        // Update the status
+        // Optional: Add logic to prevent invalid status transitions (e.g., cannot go
+        // from COMPLETED back to WAITING)
+        // Example:
+        // if (appointment.getAppointmentStatus() == AppointmentStatus.COMPLETED ||
+        // appointment.getAppointmentStatus() == AppointmentStatus.CANCELLED) {
+        // throw new InvalidAppointmentStatusTransitionException("Cannot change status
+        // of a completed or cancelled appointment.");
+        // }
+
         appointment.setAppointmentStatus(request.getNewStatus());
-
-        // Save and return the updated appointment
         return appointmentRepository.save(appointment);
-    }
-
-    private boolean isOverlapping(OffsetDateTime start1, OffsetDateTime end1, OffsetDateTime start2,
-            OffsetDateTime end2) {
-        return start1.isBefore(end2) && end1.isAfter(start2);
     }
 }

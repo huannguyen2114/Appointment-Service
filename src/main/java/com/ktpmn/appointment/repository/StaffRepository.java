@@ -1,5 +1,6 @@
 package com.ktpmn.appointment.repository;
 
+import com.ktpmn.appointment.model.Staff; // Import your Staff model
 import com.ktpmn.appointment.constant.Role;
 import com.ktpmn.appointment.model.Staff;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,7 @@ import java.util.UUID;
 @Repository
 public interface StaffRepository extends JpaRepository<Staff, UUID> {
     Page<Staff> findByRole(Role role, Pageable pageable);
+    // Add custom query methods if needed
 
     Staff findByIdAndRole(UUID id, Role role);
 }

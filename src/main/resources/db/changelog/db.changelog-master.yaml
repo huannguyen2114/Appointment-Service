@@ -2,3 +2,6 @@ databaseChangeLog:
   - include:
       file: ../001-init.sql # Path relative to this master file
       relativeToChangelogFile: true
+  - include: # Add this section for the new script
+      file: changesets/002-remove-appointment-fks.sql # Path relative to this master file
+      relativeToChangelogFile: true

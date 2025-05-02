@@ -7,6 +7,7 @@ import lombok.Getter;
 
 @Getter
 public enum ErrorCode {
+    STAFF_NOT_FOUND(2001, "Staff not found", HttpStatus.NOT_FOUND),
     INVALID_UUID(2000, "Invalid UUID", HttpStatus.BAD_REQUEST),
     ;
 

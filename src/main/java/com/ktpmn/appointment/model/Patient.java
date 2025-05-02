@@ -5,7 +5,17 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.Column; // Import Column
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank; // Import NotBlank
+import java.util.List; // Import List
+import jakarta.persistence.OneToMany; // Import OneToMany
 // Remove unused imports like Date, Pattern, Email if not needed for other fields
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
@@ -36,6 +46,10 @@ public class Patient extends Audit { // Assuming Patient should also extend Audi
 
     // Removed commented-out fields as they are not in the patient table definition
     // in 001-init.sql
+
+    @OneToMany(mappedBy = "patient") // 'patient' is the field name in Appointment
+    @JsonManagedReference
+    private List<Appointment> appointments;
 
     // created_at and updated_at are inherited from Audit class
 

@@ -1,5 +1,7 @@
 package com.ktpmn.appointment.service;
 
+import com.ktpmn.appointment.dto.request.CreateStaffRequest;
+import com.ktpmn.appointment.model.Staff; // Import Staff model
 
 import com.ktpmn.appointment.constant.Role;
 import com.ktpmn.appointment.dto.request.StaffCreateRequest;
@@ -14,7 +16,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface StaffService {
-    StaffCreateResponse createStaff(StaffCreateRequest request);
 
     ListResponse<StaffResponse> getAllDoctors(Pageable pageable);
 
@@ -22,4 +23,6 @@ public interface StaffService {
 
     Staff findByIdAndRole(UUID id, Role role);
 
+    Staff createStaff(CreateStaffRequest request);
+    // Add other staff-related service methods
 }

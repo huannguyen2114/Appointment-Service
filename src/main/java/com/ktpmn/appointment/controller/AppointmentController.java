@@ -1,5 +1,8 @@
 package com.ktpmn.appointment.controller;
 
+import com.ktpmn.appointment.dto.request.CreateAppointmentRequest;
+import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest; // Import Update DTO
+import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest; // Import new DTO
 import java.util.List;
 import java.util.UUID;
 
@@ -26,16 +29,22 @@ import org.springframework.web.bind.annotation.*;
 
 import com.ktpmn.appointment.model.Appointment;
 import com.ktpmn.appointment.service.AppointmentService;
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*; // Import more annotations
+import java.util.UUID; // Import UUID
 
 @RestController
-@RequestMapping("/api/appointment")
+@RequestMapping("/api/v1/appointments")
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AppointmentController {
+
+    private final AppointmentService appointmentService;
     AppointmentService appointmentService;
     PatientService patientService;
     PatientMapper patientMapper;
@@ -84,7 +93,34 @@ public class AppointmentController {
                 .message("All appointment by phone number")
                 .result(patientResponse)
                 .build();
+        }
 
+    @PostMapping
+    public ResponseEntity<Appointment> createAppointment(@Valid @RequestBody CreateAppointmentRequest request) {
+        Appointment createdAppointment = appointmentService.createAppointment(request);
+        return new ResponseEntity<>(createdAppointment, HttpStatus.CREATED);
     }
 
+    @PutMapping("/{id}") // PUT endpoint for updates
+    public ResponseEntity<Appointment> updateAppointment(
+            @PathVariable UUID id, // Get ID from path
+            @Valid @RequestBody UpdateAppointmentRequest request) {
+        Appointment updatedAppointment = appointmentService.updateAppointment(id, request);
+        return ResponseEntity.ok(updatedAppointment); // Return 200 OK with updated body
+    }
+
+    @DeleteMapping("/{id}") // DELETE endpoint
+    public ResponseEntity<Void> deleteAppointment(@PathVariable UUID id) { // Get ID from path
+        appointmentService.deleteAppointment(id);
+        return ResponseEntity.noContent().build(); // Return 204 No Content
+    }
+
+    @PatchMapping("/status") // PATCH endpoint for status update
+    public ResponseEntity<Appointment> updateAppointmentStatus(
+            @Valid @RequestBody UpdateAppointmentStatusRequest request) {
+        Appointment updatedAppointment = appointmentService.updateAppointmentStatus(request);
+        return ResponseEntity.ok(updatedAppointment); // Return 200 OK with updated body
+    }
+
+    // Add other endpoints (GET) as needed
 }

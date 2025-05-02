@@ -22,6 +22,9 @@ import jakarta.validation.constraints.NotNull; // Import NotNull
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import java.util.List; // Import List
+import jakarta.persistence.OneToMany; // Import OneToMany
+import jakarta.persistence.CascadeType; // Optional: Import CascadeType
 
 @Data
 @Builder
@@ -77,7 +80,11 @@ public class Staff extends Audit {
     @Column(name = "citizen_id", length = 12, unique = true) // Map to citizen_id column
     String citizenId;
 
+    @OneToMany(mappedBy = "doctor") // 'doctor' is the field name in Appointment
+    private List<Appointment> appointmentsAsDoctor;
+
+    @OneToMany(mappedBy = "staff") // 'staff' is the field name in Shift
+    private List<Shift> shifts;
+
     // created_at and updated_at are inherited from Audit class
-    // Ensure Audit class fields use appropriate types (e.g., OffsetDateTime) and
-    // @Column if needed
 }

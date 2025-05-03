@@ -3,14 +3,12 @@ package com.ktpmn.appointment.controller;
 import com.ktpmn.appointment.dto.request.CreateAppointmentRequest;
 import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest; // Import Update DTO
 import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest; // Import new DTO
+
 import java.util.List; // Import List
 import java.util.UUID;
 import java.util.stream.Collectors; // Import Collectors
 
-import com.ktpmn.appointment.dto.request.AppointmentCreateRequest;
 import com.ktpmn.appointment.dto.response.*;
-// import com.ktpmn.appointment.mapper.PatientMapper; // Remove PatientMapper import
-// import com.ktpmn.appointment.mapper.StaffMapper; // Remove StaffMapper import
 import com.ktpmn.appointment.model.Patient; // Import Patient model
 import com.ktpmn.appointment.model.Staff; // Import Staff model
 import com.ktpmn.appointment.service.PatientService;
@@ -38,10 +36,6 @@ public class AppointmentController {
 
     AppointmentService appointmentService;
     PatientService patientService;
-    // PatientMapper patientMapper; // Removed PatientMapper field
-    // StaffMapper staffMapper; // Removed StaffMapper field
-
-    // Get Appointment by doctor id -> /:id
 
     // Get All Appointment by doctor id -> list appointment
     @GetMapping("/doctor/{id}")
@@ -54,16 +48,6 @@ public class AppointmentController {
                 .code(HttpStatus.OK.value())
                 .message("List Appointment of doctor")
                 .result(appointmentService.getAllAppointmentsByDoctorId(id, pageable))
-                .build();
-    }
-
-    // create doctor
-    @PostMapping("/doctor")
-    public ApiResponse<AppointmentCreateResponse> createAppointment(@RequestBody AppointmentCreateRequest request) {
-        return ApiResponse.<AppointmentCreateResponse>builder()
-                .code(HttpStatus.CREATED.value())
-                .message("Appointment created successfully")
-                .result(appointmentService.createAppointment(request))
                 .build();
     }
 

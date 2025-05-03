@@ -25,7 +25,6 @@ import java.util.stream.Collectors; // Import Collectors
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class StaffServiceImpl implements StaffService {
     StaffRepository staffRepository;
-    // StaffMapper staffMapper; // Remove StaffMapper field
 
     // Optional: Inject other repositories or services if needed for validation
     // (e.g., check uniqueness)
@@ -94,15 +93,5 @@ public class StaffServiceImpl implements StaffService {
                 .createdAt(staff.getCreatedAt())
                 .updatedAt(staff.getUpdatedAt())
                 .build();
-    }
-
-    @Override
-    public Staff fingById(UUID id) {
-        return staffRepository.findById(id).orElse(null);
-    }
-
-    @Override
-    public Staff findByIdAndRole(UUID id, Role role) {
-        return staffRepository.findByIdAndRole(id, role);
     }
 }

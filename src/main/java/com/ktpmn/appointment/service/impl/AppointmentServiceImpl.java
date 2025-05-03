@@ -6,6 +6,7 @@ import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest; // Import Upd
 import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest; // Import new DTO
 import com.ktpmn.appointment.exception.*;
 import com.ktpmn.appointment.exception.DoctorAppointmentMismatchException; // Import custom exception
+
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors; // Import Collectors
@@ -54,7 +55,6 @@ public class AppointmentServiceImpl implements AppointmentService {
     PatientRepository patientRepository;
     StaffRepository staffRepository;
     ShiftRepository shiftRepository;
-    // AppointmentMapper appointmentMapper; // Remove MapStruct mapper field
 
     @Override
     @Transactional
@@ -121,36 +121,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .listData(appointmentResponses)
                 .pageNumber(resultPage.getPageable().getPageNumber())
                 .numberOfElements(resultPage.getNumberOfElements())
-                .build();
-    }
-
-    @Override
-    @Transactional
-    public AppointmentCreateResponse createAppointment(AppointmentCreateRequest appointment) {
-
-        Staff doctor = staffRepository.findById(appointment.getDoctorId())
-                .orElseThrow(
-                        () -> new ResourceNotFoundException("Staff (Doctor)", appointment.getDoctorId().toString())); // Use
-                                                                                                                      // ResourceNotFoundException
-
-        Patient patient = patientRepository.findById(appointment.getPatientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Patient", appointment.getPatientId().toString())); // Use
-                                                                                                                     // ResourceNotFoundException
-
-        Appointment newAppointment = Appointment.builder()
-                .doctor(doctor)
-                .patient(patient)
-                .appointmentStatus(AppointmentStatus.WAITING) // Set default status if applicable
-                // Set other default fields if necessary
-                .build();
-
-        Appointment savedAppointment = appointmentRepository.save(newAppointment);
-
-        // Manual mapping using Builder
-        return AppointmentCreateResponse.builder()
-                .id(savedAppointment.getId().toString())
-                .doctor(savedAppointment.getDoctor()) // Assuming you want the full Staff object
-                .patient(savedAppointment.getPatient()) // Assuming you want the full Patient object
                 .build();
     }
 

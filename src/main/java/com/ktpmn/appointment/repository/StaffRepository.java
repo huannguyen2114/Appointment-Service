@@ -13,6 +13,4 @@ import java.util.UUID;
 public interface StaffRepository extends JpaRepository<Staff, UUID> {
     Page<Staff> findByRole(Role role, Pageable pageable);
     // Add custom query methods if needed
-
-    Staff findByIdAndRole(UUID id, Role role);
 }

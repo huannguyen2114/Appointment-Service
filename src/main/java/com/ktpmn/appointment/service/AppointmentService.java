@@ -2,8 +2,6 @@ package com.ktpmn.appointment.service;
 
 import java.util.UUID;
 
-import com.ktpmn.appointment.dto.request.AppointmentCreateRequest;
-import com.ktpmn.appointment.dto.response.AppointmentCreateResponse;
 import com.ktpmn.appointment.dto.response.AppointmentResponse;
 import com.ktpmn.appointment.dto.response.ListResponse;
 import com.ktpmn.appointment.dto.request.CreateAppointmentRequest;
@@ -14,8 +12,6 @@ import org.springframework.data.domain.Pageable;
 
 public interface AppointmentService {
     ListResponse<AppointmentResponse> getAllAppointmentsByDoctorId(UUID doctorId, Pageable pageable);
-
-    AppointmentCreateResponse createAppointment(AppointmentCreateRequest appointment);
 
     Appointment createAppointment(CreateAppointmentRequest request);
 

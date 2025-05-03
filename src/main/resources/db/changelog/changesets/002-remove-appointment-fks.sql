@@ -7,3 +7,8 @@ ALTER TABLE "patient"
 ADD COLUMN "created_at" timestamptz DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE "patient"
 ADD COLUMN "updated_at" timestamptz DEFAULT CURRENT_TIMESTAMP;
+
+--
+-- "created_at" timestamptz DEFAULT CURRENT_TIMESTAMP,
+--     -- Recommended: Use timestamptz and add default
+--     "updated_at" timestamptz DEFAULT CURRENT_TIMESTAMP,

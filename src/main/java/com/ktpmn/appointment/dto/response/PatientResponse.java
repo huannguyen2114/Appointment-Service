@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -16,10 +16,11 @@ import java.util.UUID;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PatientResponse {
-    UUID id;
-    String firstName;
-    String lastName;
-    String phoneNumber;
-    OffsetDateTime createdAt;
-    OffsetDateTime updatedAt;
+    private UUID id;
+    private String firstName;
+    private String lastName;
+    private String gender;
+    private LocalDateTime dateOfBirth;
+    private String email;
+    private String contactNumber;
 }

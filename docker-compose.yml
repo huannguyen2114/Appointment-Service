@@ -1,33 +1,44 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:latest # Use the latest official PostgreSQL image
-    container_name: postgres_db
-    restart: always # Keep the container running unless stopped
+  postgres_db: # Renamed from 'db' for clarity
+    image: postgres:latest
+    container_name: postgres_db_appointment # Optional: Give a specific container name
+    restart: always
     environment:
-      POSTGRES_USER: myuser # Replace with your desired username
-      POSTGRES_PASSWORD: mypassword # Replace with your desired password
-      POSTGRES_DB: appointment_db # Replace with your desired database name
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: appointment_db
     ports:
-      - "5444:5432" # Map host port 5432 to container port 5432
+      - "5444:5432" # Host port 5444 maps to container port 5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Persist data using a named volume
+      - postgres_data:/var/lib/postgresql/data # Use a named volume
+    networks:
+      - hospital-network # Connect to the shared network
 
-  app: # Add the new service for your Spring Boot application
-    build: . # Build the image from the Dockerfile in the current directory
-    container_name: appointment_app
+  appointment-app: # Renamed from 'app'
+    # IMPORTANT: Adjust the build context if the appointment service code is elsewhere
+    build: . # Example: Assumes appointment service is in a sibling directory
+    container_name: appointment # Optional: Give a specific container name
+    restart: on-failure # Changed from default/implicit restart policy
     ports:
-      - "8080:8080" # Map host port 8080 to container port 8080
+      - "8081:8080" # Map host port 8081 to container port 8080 (choose a different host port)
     environment:
-      # Pass database connection details as environment variables
-      # These should match the values expected by your application.yml
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/appointment_db # Use the service name 'db' as the host
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/appointment_db
       SPRING_DATASOURCE_USERNAME: myuser
       SPRING_DATASOURCE_PASSWORD: mypassword
-      SPRING_JPA_HIBERNATE_DDL_AUTO: validate # Or 'update'/'none' depending on your Liquibase setup
-      SPRING_LIQUIBASE_ENABLED: false # Ensure Liquibase runs
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update # Or 'update'
+      SPRING_LIQUIBASE_ENABLED: false # Or true if you use Liquibase
+      # Add Feign client URL pointing to the *service name* and *container port*
+      FEIGN_CLIENT_CONFIG_PATIENT_SERVICE_URL: http://patient:8080 # Use service name 'patient-app' and its container port 8080
     depends_on:
-      - db # Ensure the 'db' service starts before the 'app' service
+      - postgres_db
+    networks:
+      - hospital-network # Connect to the shared network
 volumes:
   postgres_data: # Define the named volume
+
+
+networks:
+  hospital-network:
+    external: true

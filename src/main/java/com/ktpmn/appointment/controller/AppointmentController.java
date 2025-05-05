@@ -1,23 +1,26 @@
 package com.ktpmn.appointment.controller;
 
 import com.ktpmn.appointment.dto.request.CreateAppointmentRequest;
-import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest; // Import Update DTO
-import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest; // Import new DTO
+import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest;
+import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest;
 
-import java.util.List; // Import List
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors; // Import Collectors
+import java.util.stream.Collectors;
 
 import com.ktpmn.appointment.dto.response.*;
-import com.ktpmn.appointment.model.Patient; // Import Patient model
-import com.ktpmn.appointment.model.Staff; // Import Staff model
-import com.ktpmn.appointment.service.PatientService;
+import com.ktpmn.appointment.mapper.AppointmentMapper;
+
+import com.ktpmn.appointment.repository.AppointmentRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -25,19 +28,21 @@ import org.springframework.web.bind.annotation.*;
 
 import com.ktpmn.appointment.model.Appointment;
 import com.ktpmn.appointment.service.AppointmentService;
+import com.ktpmn.appointment.service.PatientExternalService;
+
 import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/api/v1/appointments")
-@AllArgsConstructor
-@Builder
+@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AppointmentController {
 
     AppointmentService appointmentService;
-    PatientService patientService;
+    PatientExternalService patientExternalService;
+    AppointmentRepository appointmentRepository;
+    AppointmentMapper appointmentMapper;
 
-    // Get All Appointment by doctor id -> list appointment
     @GetMapping("/doctor/{id}")
     public ApiResponse<ListResponse<AppointmentResponse>> findAllAppointmentsByDoctorId(
             @PathVariable UUID id,
@@ -51,31 +56,37 @@ public class AppointmentController {
                 .build();
     }
 
-    // Get Appointment by phone_number (RequestBody: type: appointment)
-    @GetMapping("/patient/{phoneNumber}")
+    @GetMapping("/patient/phone/{phoneNumber}")
     public ApiResponse<PatientAppointmentResponse> getAllAppointmentByPhonenumber(@PathVariable String phoneNumber) {
-        Patient patient = patientService.getPatientByPhoneNumber(phoneNumber); // Get Patient entity
+        Optional<PatientResponse> patientOptional = patientExternalService.findPatientByPhoneNumber(phoneNumber);
 
-        if (patient == null) {
+        if (!patientOptional.isPresent()) {
             return ApiResponse.<PatientAppointmentResponse>builder()
-                    .code(HttpStatus.NOT_FOUND.value()) // Use NOT_FOUND
+                    .code(HttpStatus.NOT_FOUND.value())
                     .message("No patient found with phone number: " + phoneNumber)
                     .result(null)
                     .build();
         }
 
-        // Manually map Appointments to AppointmentResponse DTOs
-        List<AppointmentResponse> appointmentResponses = patient.getAppointments().stream()
-                .map(this::mapAppointmentToResponse) // Use helper method for mapping
-                .collect(Collectors.toList());
+        PatientResponse patient = patientOptional.get();
+        List<Appointment> appointments = appointmentRepository.findByPatientId(patient.getId());
 
-        // Manually build the PatientAppointmentResponse
+        // Map Appointments to AppointmentResponse DTOs using the mapper
+        List<AppointmentResponse> appointmentResponses;
+        if (appointments != null && !appointments.isEmpty()) {
+            appointmentResponses = appointments.stream()
+                    .map(appointmentMapper::mapAppointmentToAppointmentResponse)
+                    .collect(Collectors.toList());
+        } else {
+            appointmentResponses = Collections.emptyList();
+        }
+
         PatientAppointmentResponse patientAppointmentResponse = PatientAppointmentResponse.builder()
                 .id(patient.getId())
                 .firstName(patient.getFirstName())
                 .lastName(patient.getLastName())
-                .phoneNumber(patient.getPhoneNumber())
-                .appointments(appointmentResponses) // Set the mapped list
+                .phoneNumber(patient.getContactNumber())
+                .appointments(appointmentResponses)
                 .build();
 
         return ApiResponse.<PatientAppointmentResponse>builder()
@@ -86,78 +97,35 @@ public class AppointmentController {
     }
 
     @PostMapping
-    public ResponseEntity<Appointment> createAppointment(@Valid @RequestBody CreateAppointmentRequest request) {
+    public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody CreateAppointmentRequest request) { // Return
+                                                                                                                         // AppointmentResponse
         Appointment createdAppointment = appointmentService.createAppointment(request);
-        return new ResponseEntity<>(createdAppointment, HttpStatus.CREATED);
+
+        AppointmentResponse response = appointmentMapper.mapAppointmentToAppointmentResponse(createdAppointment);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}") // PUT endpoint for updates
-    public ResponseEntity<Appointment> updateAppointment(
-            @PathVariable UUID id, // Get ID from path
+    @PutMapping("/{id}")
+    public ResponseEntity<AppointmentResponse> updateAppointment(
+            @PathVariable UUID id,
             @Valid @RequestBody UpdateAppointmentRequest request) {
         Appointment updatedAppointment = appointmentService.updateAppointment(id, request);
-        return ResponseEntity.ok(updatedAppointment); // Return 200 OK with updated body
+
+        AppointmentResponse response = appointmentMapper.mapAppointmentToAppointmentResponse(updatedAppointment);
+        return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/{id}") // DELETE endpoint
-    public ResponseEntity<Void> deleteAppointment(@PathVariable UUID id) { // Get ID from path
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteAppointment(@PathVariable UUID id) {
         appointmentService.deleteAppointment(id);
-        return ResponseEntity.noContent().build(); // Return 204 No Content
+        return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/status") // PATCH endpoint for status update
-    public ResponseEntity<Appointment> updateAppointmentStatus(
+    @PatchMapping("/status")
+    public ResponseEntity<AppointmentResponse> updateAppointmentStatus(
             @Valid @RequestBody UpdateAppointmentStatusRequest request) {
         Appointment updatedAppointment = appointmentService.updateAppointmentStatus(request);
-        return ResponseEntity.ok(updatedAppointment); // Return 200 OK with updated body
-    }
-
-    // Add other endpoints (GET) as needed
-
-    // Helper method to map Appointment entity to AppointmentResponse DTO
-    private AppointmentResponse mapAppointmentToResponse(Appointment appointment) {
-        StaffResponse staffResponse = null;
-        if (appointment.getDoctor() != null) {
-            Staff doctor = appointment.getDoctor();
-            staffResponse = StaffResponse.builder()
-                    .id(doctor.getId())
-                    .firstName(doctor.getFirstName())
-                    .lastName(doctor.getLastName())
-                    .email(doctor.getEmail())
-                    .phoneNumber(doctor.getPhoneNumber())
-                    .role(doctor.getRole())
-                    .dob(doctor.getDob())
-                    .certificationId(doctor.getCertificationId())
-                    .sex(doctor.getSex())
-                    .citizenId(doctor.getCitizenId())
-                    .createdAt(doctor.getCreatedAt())
-                    .updatedAt(doctor.getUpdatedAt())
-                    .build();
-        }
-
-        PatientResponse patientResponse = null;
-        if (appointment.getPatient() != null) {
-            Patient apptPatient = appointment.getPatient();
-            patientResponse = PatientResponse.builder()
-                    .id(apptPatient.getId())
-                    .firstName(apptPatient.getFirstName())
-                    .lastName(apptPatient.getLastName())
-                    .phoneNumber(apptPatient.getPhoneNumber())
-                    .createdAt(apptPatient.getCreatedAt())
-                    .updatedAt(apptPatient.getUpdatedAt())
-                    .build();
-        }
-
-        return AppointmentResponse.builder()
-                .id(appointment.getId().toString())
-                .doctor(staffResponse)
-                .patient(patientResponse) // Include mapped patient details
-                .appointmentStatus(appointment.getAppointmentStatus())
-                .description(appointment.getDescription())
-                .appointmentType(appointment.getAppointmentType())
-                .fromDate(appointment.getFromDate())
-                .toDate(appointment.getToDate())
-                .ordinalNumber(appointment.getOrdinalNumber())
-                .build();
+        AppointmentResponse response = appointmentMapper.mapAppointmentToAppointmentResponse(updatedAppointment);
+        return ResponseEntity.ok(response);
     }
 }

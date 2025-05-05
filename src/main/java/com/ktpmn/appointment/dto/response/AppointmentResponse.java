@@ -12,26 +12,17 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE)
+@FieldDefaults(level = lombok.AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AppointmentResponse {
-
     String id;
-
-    StaffResponse doctor;
-
+    DoctorResponse doctor; // Changed from StaffResponse
     PatientResponse patient;
-
+    // UUID patientId; // Remove if full PatientResponse is always included
     AppointmentStatus appointmentStatus;
-
     String description;
-
     AppointmentType appointmentType;
-
-    OffsetDateTime fromDate; // Changed from Date to OffsetDateTime
-
-    OffsetDateTime toDate; // Changed from Date to OffsetDateTime
-
+    OffsetDateTime fromDate;
+    OffsetDateTime toDate;
     Integer ordinalNumber;
-
 }

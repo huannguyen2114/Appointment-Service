@@ -5,27 +5,22 @@ import com.ktpmn.appointment.dto.request.CreateAppointmentRequest;
 import com.ktpmn.appointment.dto.request.UpdateAppointmentRequest; // Import Update DTO
 import com.ktpmn.appointment.dto.request.UpdateAppointmentStatusRequest; // Import new DTO
 import com.ktpmn.appointment.exception.*;
-import com.ktpmn.appointment.exception.DoctorAppointmentMismatchException; // Import custom exception
 
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors; // Import Collectors
 
-import com.ktpmn.appointment.dto.request.AppointmentCreateRequest;
-import com.ktpmn.appointment.dto.response.AppointmentCreateResponse;
 import com.ktpmn.appointment.dto.response.AppointmentResponse;
 
 import com.ktpmn.appointment.dto.response.ListResponse;
-import com.ktpmn.appointment.dto.response.PatientResponse;
-import com.ktpmn.appointment.dto.response.StaffResponse;
-// import com.ktpmn.appointment.mapper.AppointmentMapper; // Remove MapStruct mapper import
-import com.ktpmn.appointment.model.Patient;
-import com.ktpmn.appointment.model.Staff;
-import com.ktpmn.appointment.repository.PatientRepository;
-import com.ktpmn.appointment.repository.StaffRepository;
+import com.ktpmn.appointment.mapper.AppointmentMapper; // Add import
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,20 +36,23 @@ import com.ktpmn.appointment.repository.ShiftRepository;
 
 import com.ktpmn.appointment.service.AppointmentService;
 
-import org.springframework.transaction.annotation.Transactional;
+import com.ktpmn.appointment.service.PatientExternalService;
 
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
+import com.ktpmn.appointment.service.DoctorExternalService;
 
+import jakarta.transaction.Transactional;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AppointmentServiceImpl implements AppointmentService {
 
     AppointmentRepository appointmentRepository;
-    PatientRepository patientRepository;
-    StaffRepository staffRepository;
-    ShiftRepository shiftRepository;
+    ShiftRepository shiftRepository; // Keep ShiftRepository for now
+    PatientExternalService patientExternalService;
+    DoctorExternalService doctorExternalService; // + Add DoctorExternalService field
+    AppointmentMapper appointmentMapper;
 
     @Override
     @Transactional
@@ -63,42 +61,30 @@ public class AppointmentServiceImpl implements AppointmentService {
             throw new IllegalArgumentException("Appointment 'toDate' must be after 'fromDate'.");
         }
 
-        // This may be replaced with a feign client called to patient service !!?
-        Patient patient = patientRepository.findById(request.getPatientId())
+        patientExternalService.findPatientById(request.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", request.getPatientId().toString()));
+        log.info("Successfully validated existence of patient with ID: {}", request.getPatientId());
 
-        // This may be replaced with a feign client called to staff service !!?
-        Staff doctor = staffRepository.findById(request.getDoctorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Staff (Doctor)", request.getDoctorId().toString()));
+        doctorExternalService.findDoctorById(request.getDoctorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", request.getDoctorId().toString()));
+        log.info("Successfully validated existence of doctor with ID: {}", request.getDoctorId());
 
-        // --- Patient Check ---
         if (appointmentRepository.existsOverlappingAppointmentForPatient(request.getPatientId(), request.getFromDate(),
                 request.getToDate())) {
             throw new PatientHasExistingAppointmentException(
                     "Patient already has an overlapping appointment scheduled.");
         }
 
-        LocalTime requestedStartTime = request.getFromDate().toLocalTime();
-        LocalTime requestedEndTime = request.getToDate().toLocalTime();
-
-        List<Shift> doctorShifts = shiftRepository.findByStaffId(doctor.getId());
-        boolean worksDuringRequestedTime = doctorShifts.stream()
-                .anyMatch(shift -> !requestedStartTime.isBefore(shift.getFromTime())
-                        && !requestedEndTime.isAfter(shift.getToTime()));
-
-        if (!worksDuringRequestedTime) {
-            throw new DoctorNotWorkingException("Doctor is not scheduled to work during the requested time slot.");
-        }
-
+        checkDoctorAvailability(request.getDoctorId(), request.getFromDate(), request.getToDate());
         if (appointmentRepository.existsOverlappingAppointmentForDoctor(request.getDoctorId(), request.getFromDate(),
                 request.getToDate())) {
             throw new DoctorTimeSlotUnavailableException(
-                    "Doctor already has an overlapping appointment scheduled at this time.");
+                    "Doctor already has an overlapping appointment scheduled.");
         }
 
         Appointment newAppointment = Appointment.builder()
-                .patient(patient)
-                .doctor(doctor)
+                .patientId(request.getPatientId())
+                .doctorId(request.getDoctorId())
                 .appointmentType(request.getAppointmentType())
                 .description(request.getDescription())
                 .fromDate(request.getFromDate())
@@ -109,12 +95,39 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointmentRepository.save(newAppointment);
     }
 
+    private void checkDoctorAvailability(UUID doctorId, OffsetDateTime from, OffsetDateTime to) {
+
+        List<Shift> shifts = shiftRepository.findByDoctorId(doctorId);
+
+        if (shifts.isEmpty()) {
+            throw new DoctorNotWorkingException("Doctor does not work on " + from.getDayOfWeek());
+        }
+
+        LocalTime requestStartTime = from.toLocalTime();
+        LocalTime requestEndTime = to.toLocalTime();
+
+        boolean withinShift = shifts.stream().anyMatch(shift -> !requestStartTime.isBefore(shift.getFromTime())
+                && !requestEndTime.isAfter(shift.getToTime()));
+
+        if (!withinShift) {
+            throw new DoctorNotWorkingException(
+                    "Requested time slot is outside the doctor's working shifts for the day.");
+        }
+    }
+
     @Override
     public ListResponse<AppointmentResponse> getAllAppointmentsByDoctorId(UUID doctorId, Pageable pageable) {
-        Page<Appointment> resultPage = appointmentRepository.findByDoctorId(doctorId, pageable);
+        // Validate doctor existence externally first? Optional, depends on
+        // requirements.
+        // doctorExternalService.findDoctorById(doctorId)
+        // .orElseThrow(() -> new ResourceNotFoundException("Doctor",
+        // doctorId.toString()));
+
+        Page<Appointment> resultPage = appointmentRepository.findByDoctorId(doctorId, pageable); // This query remains
+                                                                                                 // valid
 
         List<AppointmentResponse> appointmentResponses = resultPage.getContent().stream()
-                .map(this::mapAppointmentToAppointmentResponse) // Use helper method for mapping
+                .map(appointmentMapper::mapAppointmentToAppointmentResponse)
                 .collect(Collectors.toList());
 
         return ListResponse.<AppointmentResponse>builder()
@@ -127,115 +140,37 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Override
     @Transactional
     public Appointment updateAppointment(UUID id, UpdateAppointmentRequest request) {
-        // --- Fetch Existing Appointment ---
         Appointment existingAppointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment", id.toString()));
 
-        // --- Validation ---
-        if (request.getToDate().isBefore(request.getFromDate())) {
-            throw new IllegalArgumentException("Appointment 'toDate' must be after 'fromDate'.");
-        }
-
-        // --- Check for Conflicts IF time/date is changing ---
-        boolean timeChanged = !existingAppointment.getFromDate().isEqual(request.getFromDate()) ||
-                !existingAppointment.getToDate().isEqual(request.getToDate());
-
-        if (timeChanged) {
-            // Check Patient Conflict (excluding the current appointment)
-            if (appointmentRepository.existsOverlappingAppointmentForPatientExcludingSelf(
-                    existingAppointment.getPatient().getId(), request.getFromDate(), request.getToDate(), id)) {
-                throw new PatientHasExistingAppointmentException(
-                        "Patient already has another overlapping appointment scheduled at this time.");
+        // Validate new times if they changed
+        if (!request.getFromDate().equals(existingAppointment.getFromDate())
+                || !request.getToDate().equals(existingAppointment.getToDate())) {
+            if (request.getToDate().isBefore(request.getFromDate())) {
+                throw new IllegalArgumentException("Appointment 'toDate' must be after 'fromDate'.");
             }
-
-            // Check Doctor Availability (Shift)
-            LocalTime requestedStartTime = request.getFromDate().toLocalTime();
-            LocalTime requestedEndTime = request.getToDate().toLocalTime();
-            List<Shift> doctorShifts = shiftRepository.findByStaffId(existingAppointment.getDoctor().getId());
-            boolean worksDuringRequestedTime = doctorShifts.stream()
-                    .anyMatch(shift -> !requestedStartTime.isBefore(shift.getFromTime())
-                            && !requestedEndTime.isAfter(shift.getToTime()));
-            if (!worksDuringRequestedTime) {
-                throw new DoctorNotWorkingException("Doctor is not scheduled to work during the updated time slot.");
-            }
-
-            // Check Doctor Conflict (excluding the current appointment)
+            // Re-check doctor availability and overlaps for the new time
+            checkDoctorAvailability(existingAppointment.getDoctorId(), request.getFromDate(), request.getToDate());
             if (appointmentRepository.existsOverlappingAppointmentForDoctorExcludingSelf(
-                    existingAppointment.getDoctor().getId(), request.getFromDate(), request.getToDate(), id)) {
+                    existingAppointment.getDoctorId(), request.getFromDate(), request.getToDate(), id)) {
                 throw new DoctorTimeSlotUnavailableException(
-                        "Doctor already has another overlapping appointment scheduled at this time.");
+                        "Doctor already has an overlapping appointment scheduled for the new time.");
+            }
+            if (appointmentRepository.existsOverlappingAppointmentForPatientExcludingSelf(
+                    existingAppointment.getPatientId(), request.getFromDate(), request.getToDate(), id)) {
+                throw new PatientHasExistingAppointmentException(
+                        "Patient already has an overlapping appointment scheduled for the new time.");
             }
         }
 
-        // --- Update Fields ---
+        // Update fields
         existingAppointment.setAppointmentType(request.getAppointmentType());
         existingAppointment.setDescription(request.getDescription());
         existingAppointment.setFromDate(request.getFromDate());
         existingAppointment.setToDate(request.getToDate());
         existingAppointment.setAppointmentStatus(request.getAppointmentStatus());
-        // Note: patient, doctor, and ordinalNumber are generally not updated here.
-        // Audit fields (createdAt, updatedAt) will be handled by @UpdateTimestamp
 
-        // --- Save and Return ---
         return appointmentRepository.save(existingAppointment);
-    }
-
-    @Override
-    @Transactional
-    public void deleteAppointment(UUID id) {
-        // --- Check if exists ---
-        if (!appointmentRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Appointment", id.toString());
-        }
-        // --- Delete ---
-        appointmentRepository.deleteById(id);
-    }
-
-    // Helper method to map Appointment to AppointmentResponse using Builder
-    private AppointmentResponse mapAppointmentToAppointmentResponse(Appointment appointment) {
-        // Manual mapping for nested objects (Doctor -> StaffResponse, Patient ->
-        // PatientResponse)
-        StaffResponse staffResponse = null;
-        if (appointment.getDoctor() != null) {
-            staffResponse = StaffResponse.builder()
-                    .id(appointment.getDoctor().getId())
-                    .firstName(appointment.getDoctor().getFirstName())
-                    .lastName(appointment.getDoctor().getLastName())
-                    .email(appointment.getDoctor().getEmail())
-                    .phoneNumber(appointment.getDoctor().getPhoneNumber())
-                    .role(appointment.getDoctor().getRole())
-                    .dob(appointment.getDoctor().getDob())
-                    .certificationId(appointment.getDoctor().getCertificationId())
-                    .sex(appointment.getDoctor().getSex())
-                    .citizenId(appointment.getDoctor().getCitizenId())
-                    .createdAt(appointment.getDoctor().getCreatedAt())
-                    .updatedAt(appointment.getDoctor().getUpdatedAt())
-                    .build();
-        }
-
-        PatientResponse patientResponse = null;
-        if (appointment.getPatient() != null) {
-            patientResponse = PatientResponse.builder()
-                    .id(appointment.getPatient().getId())
-                    .firstName(appointment.getPatient().getFirstName())
-                    .lastName(appointment.getPatient().getLastName())
-                    .phoneNumber(appointment.getPatient().getPhoneNumber())
-                    .createdAt(appointment.getPatient().getCreatedAt())
-                    .updatedAt(appointment.getPatient().getUpdatedAt())
-                    .build();
-        }
-
-        return AppointmentResponse.builder()
-                .id(appointment.getId().toString())
-                .doctor(staffResponse)
-                .patient(patientResponse)
-                .appointmentStatus(appointment.getAppointmentStatus())
-                .description(appointment.getDescription())
-                .appointmentType(appointment.getAppointmentType())
-                .fromDate(appointment.getFromDate())
-                .toDate(appointment.getToDate())
-                .ordinalNumber(appointment.getOrdinalNumber())
-                .build();
     }
 
     @Override
@@ -244,22 +179,28 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment", request.getAppointmentId().toString()));
 
-        // Optional: Verify the doctor making the request matches the appointment's
-        // doctor
-        if (!appointment.getDoctor().getId().equals(request.getDoctorId())) {
-            throw new DoctorAppointmentMismatchException("Doctor ID does not match the appointment's doctor.");
+        // Validate doctor using the ID stored in the appointment
+        if (!appointment.getDoctorId().equals(request.getDoctorId())) {
+            throw new IllegalArgumentException(
+                    "Provided doctorId does not match the doctor assigned to this appointment.");
         }
-
-        // Optional: Add logic to prevent invalid status transitions (e.g., cannot go
-        // from COMPLETED back to WAITING)
-        // Example:
-        // if (appointment.getAppointmentStatus() == AppointmentStatus.COMPLETED ||
-        // appointment.getAppointmentStatus() == AppointmentStatus.CANCELLED) {
-        // throw new InvalidAppointmentStatusTransitionException("Cannot change status
-        // of a completed or cancelled appointment.");
-        // }
+        // Optionally re-validate doctor existence externally
+        // doctorExternalService.findDoctorById(request.getDoctorId())
+        // .orElseThrow(() -> new ResourceNotFoundException("Doctor",
+        // request.getDoctorId().toString()));
 
         appointment.setAppointmentStatus(request.getNewStatus());
         return appointmentRepository.save(appointment);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAppointment(UUID id) {
+
+        if (!appointmentRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Appointment", id.toString());
+        }
+
+        appointmentRepository.deleteById(id);
     }
 }

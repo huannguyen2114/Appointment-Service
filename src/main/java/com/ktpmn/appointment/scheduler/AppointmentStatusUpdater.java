@@ -57,13 +57,12 @@ public class AppointmentStatusUpdater {
         for (Appointment appointment : appointmentsToExpire) {
             log.debug("Expiring appointment ID: {}, Patient: {}, Doctor: {}, FromDate: {}",
                     appointment.getId(),
-                    appointment.getPatient().getId(), // Assuming Patient has getId()
-                    appointment.getDoctor().getId(), // Assuming Staff has getId()
+                    appointment.getPatientId(),
+                    appointment.getDoctorId(),
                     appointment.getFromDate());
             appointment.setAppointmentStatus(AppointmentStatus.EXPIRED);
         }
 
-        // Save all updated appointments in batch
         appointmentRepository.saveAll(appointmentsToExpire);
 
         log.info("Successfully marked {} appointments as EXPIRED.", appointmentsToExpire.size());

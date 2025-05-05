@@ -7,7 +7,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: "update"
+      ddl-auto: update
     show-sql: true
 
   liquibase:
@@ -17,6 +17,19 @@ spring:
     level:
       org:
         springframework=DEBUG:
+    com.ktpmn.appointment.client.PatientFeignClient: DEBUG # Use DEBUG or FULL
+    # Example for doctor client:
+    com.ktpmn.appointment.client.DoctorFeignClient: DEBUG
 
 server:
   port: 8080
+
+feign:
+  client:
+    config:
+      # Apply to all clients ('default') or specify client name (e.g., 'patient-service')
+      default:
+        loggerLevel: full # Options: none, basic, headers, full
+      patient-service:
+        url: http://patient:8080
+        page-size: 25

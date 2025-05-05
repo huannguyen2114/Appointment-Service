@@ -4,8 +4,6 @@ package com.ktpmn.appointment.model;
 import java.time.OffsetDateTime; // Import OffsetDateTime
 import java.util.UUID;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-
 import com.ktpmn.appointment.constant.AppointmentStatus;
 import com.ktpmn.appointment.constant.AppointmentType;
 
@@ -27,19 +25,13 @@ import lombok.experimental.FieldDefaults;
 public class Appointment extends Audit {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id") // Explicit mapping for ID
+    @Column(name = "id")
     UUID id;
 
-    // Change from UUID to Patient entity for the relationship
-    @JsonBackReference
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "patient_id", nullable = false)
-    Patient patient; // Renamed field from patientId to patient
+    UUID patientId;
 
-    @ManyToOne
-    @JsonBackReference
-    @JoinColumn(name = "doctor_id")
-    Staff doctor;
+    @Column(name = "doctor_id", nullable = false)
+    UUID doctorId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "appointment_status", length = 50)
